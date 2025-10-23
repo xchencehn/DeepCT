@@ -5,12 +5,11 @@ from .summary import Summary
 from .metrics import get_metric_instance
 
 class DeepCT(torch.nn.Module):
-    def __init__(self, model, metrics, verbose=True):
+    def __init__(self, model, metrics):
         super().__init__()
         self.model = model
         self.metrics = [get_metric_instance(m) for m in metrics]
         self.collector = Collector(self.metrics)
-        self.verbose = verbose
         self._hook_handles = []
         self._register_hooks()
 
@@ -34,9 +33,6 @@ class DeepCT(torch.nn.Module):
                 # 注册 hook
                 handle = module.register_forward_hook(self._hook_fn(name))
                 self._hook_handles.append(handle)
-
-                if self.verbose:
-                    print(f"[DeepCT] {metric.name} hook -> {name}")
 
     def _hook_fn(self, layer_name):
         def hook(module, inputs, outputs):

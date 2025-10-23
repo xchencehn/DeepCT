@@ -16,7 +16,7 @@ class Summary:
 
     def show(self):
         lines = []
-        lines.append("=== DeepCT Framework Report ===\n")
+        lines.append("=== DeepCT Framework Summary ===\n")
 
         # 框架版本 & 环境
         lines.append("[Runtime Info]")
@@ -37,7 +37,7 @@ class Summary:
             lines.append(f"  {i+1:>2d}. {h['metric']:<12} -> {h['layer']}")
 
         lines.append("\n===============================\n")
-        return "\n".join(lines)
+        print("\n".join(lines))
 
     def save(self, path):
         data = {
