@@ -1,4 +1,4 @@
-### DeepCT：为大模型打造的内部信号探测系统
+## DeepCT：为大模型打造的内部信号探测系统
 
 DeepCT（Deep Computed Tomography）是一套用于大型语言模型（LLM）和 Transformer 架构的内部信号探测与可解释性分析框架。
 
@@ -17,7 +17,7 @@ DeepCT — Deep inside your model.
 
 
 
-#### 当前计划的指标：
+### 当前计划的指标：
 1. 内在维度 ID 
 2. Layer Correlator E(l) 
 3. Attention Head 熵
