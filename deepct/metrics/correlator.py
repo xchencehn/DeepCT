@@ -7,6 +7,8 @@ from .registry import register_metric
 class CorrelatorMetric(BaseMetric):
     name = "correlator"
 
+    target_layers = "model.layers.*"
+
     def update(self, layer_name, h, **kwargs):
         token_embeddings = h
         flat_embeddings = token_embeddings.reshape(-1, token_embeddings.size(-1))
@@ -21,4 +23,10 @@ class CorrelatorMetric(BaseMetric):
 
         # 计算相关器 E(ξ)
         correlator = dot_product_sum / (batch_seq_len * norm_square_sum)
-        self.values[layer_name] = float(correlator)
+        self.values[layer_name] = float(correlator.detach())
+
+
+    def compute(self):
+        return self.values
+
+    

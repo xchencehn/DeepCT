@@ -1,4 +1,4 @@
 from .deepct import DeepCT
-from .report import Report
+from .summary import Summary
 
-__all__ = ["DeepCT", "Report"]
+__all__ = ["DeepCT", "Summary"]
