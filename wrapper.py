@@ -1,7 +1,7 @@
 import torch
-from .collector import DeepCTCollector
-from .report import DeepCTReport
-from .metrics import get_metric_instance
+from collector import DeepCTCollector
+from report import DeepCTReport
+from metrics import get_metric_instance
 
 def deepct(model, metrics=None, layers="all", verbose=True):
     """
@@ -43,6 +43,9 @@ class DeepCTWrappedModel(torch.nn.Module):
 
     def forward(self, *args, **kwargs):
         return self.model(*args, **kwargs)
+
+    def __call__(self, *args, **kwargs):
+        return self.model.generate(max_new_tokens=1, *args, **kwargs)
 
     def __getattr__(self, name):
         return getattr(self.model, name)
