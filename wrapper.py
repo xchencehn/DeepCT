@@ -1,7 +1,7 @@
 import torch
-from .collector import DeepCTCollector
-from .report import DeepCTReport
-from .metrics import get_metric_instance
+from collector import DeepCTCollector
+from report import DeepCTReport
+from metrics import get_metric_instance
 
 def deepct(model, metrics=None, layers="all", verbose=True):
     """
@@ -29,8 +29,10 @@ class DeepCTWrappedModel(torch.nn.Module):
         self._register_hooks()
 
     def _register_hooks(self):
-        for name, module in self.model.named_modules():
-            if "encoder.layer" in name or self.layers == "all":
+        # for name, module in self.model.named_modules():
+        #     if "model.layer" in name or self.layers == "all":
+        for name, module in self.model.model.layers.named_children():
+            if True:
                 module.register_forward_hook(self._hook_fn(name))
                 if self.verbose:
                     print(f"[DeepCT] Hook registered on {name}")
@@ -44,8 +46,11 @@ class DeepCTWrappedModel(torch.nn.Module):
     def forward(self, *args, **kwargs):
         return self.model(*args, **kwargs)
 
-    def __getattr__(self, name):
-        return getattr(self.model, name)
+    def __call__(self, *args, **kwargs):
+        return self.model.generate(max_new_tokens=1, *args, **kwargs)
+
+    # def __getattr__(self, name):
+    #     return getattr(self.model, name)
 
     def report(self):
         data = self.collector.compute_all()

@@ -24,3 +24,39 @@ DeepCT — Deep inside your model.
 4. 激活能量保持率 
 5. Token 相似度分布
 6. L2 范数分布
+
+### 快速测试
+
+```python
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from wrapper import deepct
+
+model_name = "Qwen/Qwen2.5-VL-3B-Instruct"
+
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForCausalLM.from_pretrained(
+    model_name,
+    torch_dtype="auto",
+    device_map="auto"
+)
+
+# deepct_model = deepct(model, metrics=["intrinsic_dim", "attn_entropy"])
+deepct_model = deepct(model, metrics=["correlator", ])
+# prepare the model input
+prompt = "给我简单介绍一下大型语言模型。"
+messages = [
+    {"role": "user", "content": prompt}
+]
+text = tokenizer.apply_chat_template(
+    messages,
+    tokenize=False,
+    add_generation_prompt=True,
+    enable_thinking=True # Switches between thinking and non-thinking modes. Default is True.
+)
+model_inputs = tokenizer([text], return_tensors="pt").to(model.device)
+outputs = deepct_model(**model_inputs)
+
+report = deepct_model.report()
+report.show()
+# report.save("./deepct_metrics")
+```
