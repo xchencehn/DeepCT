@@ -23,6 +23,6 @@ text = tokenizer.apply_chat_template(
 model_inputs = tokenizer([text], return_tensors="pt").to(model.device)
 _ = dc(**model_inputs)
 
-dc.summary()
-
 metrics = dc.collect()
+
+print(metrics)

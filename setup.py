@@ -12,7 +12,7 @@ setup(
     install_requires=[
         "torch",
         "transformers",
-        "pandas",
+        "loguru",
     ],
     python_requires=">=3.8",
 )
