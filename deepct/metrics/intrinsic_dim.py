@@ -1,7 +1,7 @@
 import torch
 from .base import BaseMetric
 from .registry import register_metric
-from ..logger import logger
+from ..tools import logger
 
 @register_metric()
 class IntrinsicDim(BaseMetric):

@@ -1,8 +1,7 @@
 import torch
-from .logger import logger, print_banner
 from .collector import Collector
 from .metrics import get_metric_instance
-from .tools import summary
+from .tools import summary, logger, print_banner
 
 
 

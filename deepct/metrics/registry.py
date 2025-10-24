@@ -1,4 +1,3 @@
-# 注册系统
 _METRIC_REGISTRY = {
 }
 
