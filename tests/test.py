@@ -9,9 +9,9 @@ model = AutoModelForCausalLM.from_pretrained(
     dtype="auto"
 )
 
-dc = DeepCT(model, metrics=["correlator", "intrinsic_dim"])
+dc = DeepCT(model, metrics=["selfattn_repr_correlation", "selfattn_cov_spectrum"])
 
-prompt = "给我简单介绍一下大型语言模型。"
+prompt = "Please give me a brief introduction to large language models."
 messages = [{"role": "user", "content": prompt}]
 text = tokenizer.apply_chat_template(
     messages,
@@ -25,5 +25,4 @@ _ = dc(**model_inputs)
 
 metrics = dc.collect()
 
-# print(metrics)
 dc.summary(metrics)

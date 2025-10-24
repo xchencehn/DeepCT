@@ -1,7 +1,6 @@
 from .registry import _METRIC_REGISTRY, register_metric
-from .intrinsic_dim import IntrinsicDim
-from .layer_corr import LayerCorrelation
-from .correlator import CorrelatorMetric
+from .selfattn_cov_spectrum import SelfAttentionCovarianceSpectrum
+from .selfattn_repr_correlation import SelfAttnRepresentationalCorrelation
 
 def get_metric_instance(name):
     if name not in _METRIC_REGISTRY:

@@ -9,11 +9,11 @@ class BaseMetric:
         self.values = {}
 
     def update(self, layer_name, hidden_states, **kwargs):
-        # 这里会在每次 forward 时，被对应层的 hook 调用
+        # This will be called by the hook of the corresponding layer during each forward pass.
         raise NotImplementedError
 
     def compute(self):
-        # 这里会在所有层跑完后调用
+        # This will be called after all layers have run.
         return self.values
 
 
