@@ -9,7 +9,7 @@ model = AutoModelForCausalLM.from_pretrained(
     dtype="auto"
 )
 
-dc = DeepCT(model, metrics=["correlator", ])
+dc = DeepCT(model, metrics=["correlator", "intrinsic_dim"])
 
 prompt = "给我简单介绍一下大型语言模型。"
 messages = [{"role": "user", "content": prompt}]
@@ -25,4 +25,5 @@ _ = dc(**model_inputs)
 
 metrics = dc.collect()
 
-print(metrics)
+# print(metrics)
+dc.summary(metrics)

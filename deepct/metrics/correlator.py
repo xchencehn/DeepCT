@@ -7,7 +7,7 @@ from .registry import register_metric
 class CorrelatorMetric(BaseMetric):
     name = "correlator"
 
-    target_layers = "model.layers.*"
+    target_layers = "model.layers.*.self_attn"
 
     def update(self, layer_name, h, **kwargs):
         token_embeddings = h

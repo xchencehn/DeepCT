@@ -2,6 +2,7 @@ import torch
 from .logger import logger, print_banner
 from .collector import Collector
 from .metrics import get_metric_instance
+from .tools import summary
 
 
 
@@ -65,3 +66,6 @@ class DeepCT(torch.nn.Module):
         logger.success("Metrics collected successfully: {}",
                        ", ".join(data.keys()))
         return data
+
+    def summary(self, metrics):
+        summary(metrics)

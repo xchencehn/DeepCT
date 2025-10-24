@@ -3,8 +3,8 @@ from setuptools import setup, find_packages
 setup(
     name="deepct",
     version="0.1.0",
-    author="Your Name",
-    author_email="your.email@example.com",
+    author="xchencehn",
+    author_email="xchencehn@gmail.com",
     description="DeepCT: internal signal tomography for Transformer models",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
