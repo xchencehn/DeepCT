@@ -1,8 +1,11 @@
 import torch
 from .collector import Collector
-from .metrics import get_metric_instance
-from .tools import summary, logger, print_banner
+from .metrics import get_metric_instance, list_registered_metrics
+from .tools import summary, setup_logger, logger, banner
 import weakref, threading
+import datetime
+
+
 
 class RuntimeContext(threading.local):
     """Thread-safe context storage per forward call"""
@@ -13,6 +16,7 @@ class RuntimeContext(threading.local):
         self.kwargs = {}
         self.device = "cpu"
         self.hidden_map = {}
+        self.labels = None  
 
     @classmethod
     def start(cls, model, **kwargs):
@@ -20,6 +24,7 @@ class RuntimeContext(threading.local):
         ctx.model_ref = weakref.ref(model)
         ctx.kwargs = kwargs
         ctx.device = next(model.parameters()).device
+        ctx.labels = kwargs.get("labels", None)
         cls.current_context = ctx
         return ctx
 
@@ -31,20 +36,26 @@ class RuntimeContext(threading.local):
     def clear(cls):
         cls.current_context = None
 
-
 class DeepCT(torch.nn.Module):
-    def __init__(self, model, metrics, verbose=True):
+    def __init__(self, model, metrics):
         super().__init__()
         self.model = model
         self.metrics = [get_metric_instance(m) for m in metrics]
         self.collector = Collector(self.metrics)
-        self.verbose = verbose
         self._hook_handles = []
 
-        print_banner(model=self.model, metrics=self.metrics)
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        model_name = getattr(getattr(model, "config", None), "_name_or_path", "unknown")
+        metric_names = ", ".join([m.name for m in self.metrics])
+
+        banner(model=self.model, metrics=self.metrics)
+        logger.info("Initializing DeepCT at {}", timestamp)
+        logger.info("Loaded model: {}", model_name)
+        logger.info("Registered metrics: {}", metric_names)
 
         self._register_hooks()
         logger.info("Hook registration completed, total {} hooks", len(self._hook_handles))
+
 
     def _register_hooks(self):
         for metric in self.metrics:
@@ -73,6 +84,8 @@ class DeepCT(torch.nn.Module):
             ctx = RuntimeContext.get()
             hidden_states = outputs[0] if isinstance(outputs, tuple) else outputs
             extra = ctx.kwargs if ctx else {}
+            extra["model"] = self.model
+            extra["labels"] = ctx.labels
 
             self.collector.update(layer_name, hidden_states, **extra)
             logger.trace("[hook trigger] layer='{}' updated metrics", layer_name)
@@ -86,6 +99,10 @@ class DeepCT(torch.nn.Module):
         logger.info("Cleared {} hooks.", count)
 
     def forward(self, *args, **kwargs):
+        if "labels" not in kwargs and "input_ids" in kwargs:
+            kwargs["labels"] = kwargs["input_ids"].clone()
+            logger.info("Auto-generated labels from input_ids")
+
         logger.debug("Model forward started.")
         RuntimeContext.start(self.model, **kwargs)
         out = self.model(*args, **kwargs)
@@ -93,11 +110,23 @@ class DeepCT(torch.nn.Module):
         return out
 
     def collect(self):
-        logger.info("Collecting computed metric results...")
-        data = self.collector.collect()
-        logger.success("Metrics collected successfully: {}",
-                       ", ".join(data.keys()))
-        return data
+        """Collect all registered metric results."""
+        metrics = self.collector.collect()
+        self._summary(metrics)
+        failed_metrics = [m.name for m in self.metrics if self.collector.status[m.name]["error_flag"]]
+        if failed_metrics:
+            logger.warning("Some metrics failed: {}", failed_metrics)
+            logger.warning("See detailed trace in deepct_runtime.log.")
+        return metrics
 
-    def summary(self, metrics):
+    def _summary(self, metrics):
+        """Print a user-visible summary report."""
+        logger.info("Generating DeepCT summary report...")
         summary(metrics)
+
+    @staticmethod
+    def list_metrics():
+        """
+        List all available Metric names with their brief descriptions.
+        """
+        return list_registered_metrics()

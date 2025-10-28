@@ -1,7 +1,6 @@
 import time
-
 import torch
-
+from .tools import logger, log_exception, log_timing
 
 class Collector:
 
@@ -12,44 +11,36 @@ class Collector:
                 "iter": 0,
                 "time_record": [],
                 "error": [],
-                "error_m": False
+                "error_flag": False,
             } for m in metrics
         }
 
-    def update(self, layer_name, hidden_states):
-        def safe_sync():
-            if torch.cuda.is_available():
-                torch.cuda.synchronize()
-            elif hasattr(torch, "mps") and torch.mps.is_available():
-                torch.mps.synchronize()
-            # Skip the CPU status directly
-
+    def update(self, layer_name, hidden_states, **kwargs):
         for m in self.metrics:
-            start_time = time.time()
+            start = time.time()
             try:
-                safe_sync()
-                m.update(layer_name, hidden_states)
-                safe_sync()
-                end_time = time.time()
-            except Exception as e:
-                safe_sync()
-                end_time = time.time()
-                error_info = {
-                    'message': str(e),
-                    'exception_type': type(e).__name__,
-                    'layer_name': layer_name,
-                    'metric_name': m.name,
-                    'hidden_states_shape': getattr(hidden_states, 'shape', 'Unknown'),
-                    'execution_time': end_time - start_time,
-                    'timestamp': time.time()
-                }
-                self.status[m.name]["error"].append(error_info)
-                self.status[m.name]["error_m"] = True
+                m.update(layer_name, hidden_states, **kwargs)
+                torch.cuda.synchronize() if torch.cuda.is_available() else None
+                elapsed = time.time() - start
+                log_timing(m.name, layer_name, elapsed)
 
-            self.status[m.name]["iter"] += 1
-            self.status[m.name]["time_record"].append(end_time - start_time)
+            except Exception as e:
+                elapsed = time.time() - start
+                log_exception(e, layer=layer_name, metric=m.name)
+                self.status[m.name]["error"].append({
+                    "exception": type(e).__name__,
+                    "message": str(e),
+                    "layer": layer_name,
+                    "time": elapsed
+                })
+                self.status[m.name]["error_flag"] = True
+
+            finally:
+                self.status[m.name]["iter"] += 1
+                self.status[m.name]["time_record"].append(elapsed)
 
     def collect(self):
-        print(f"Collecting {len(self.metrics)} metrics, "
-              f"Success {len(self.metrics) - sum([self.status[m.name]['error_m'] for m in self.metrics])}")
+        total = len(self.metrics)
+        failed = sum(self.status[m.name]["error_flag"] for m in self.metrics)
+        logger.success(f"Collecting {total} metrics : success={total - failed}, failed={failed}")
         return {m.name: m.compute() for m in self.metrics}

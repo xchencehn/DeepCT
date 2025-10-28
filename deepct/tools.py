@@ -5,18 +5,54 @@ import datetime
 import torch
 from collections import defaultdict, Counter
 
-logger.remove()
+_LOG_FILE = "deepct_runtime.log"
 
-log_format = (
-    "<green>{time:HH:mm:ss}</green> | "
-    "<level>{level: <7}</level> | "
-    "<cyan>{name}</cyan>:<cyan>{line}</cyan> - "
-    "<level>{message}</level>"
-)
+def setup_logger(to_file=True):
 
-logger.add(sys.stdout, level="INFO", colorize=True, format=log_format)
+    logger.remove()
 
-def print_banner(model=None, metrics=None, version="0.1.0"):
+    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+
+    fmt_console = (
+        "<green>{time:HH:mm:ss}</green> | "
+        "<level>{level: <8}</level> | "
+        "<cyan>{name}</cyan> - "
+        "<level>{message}</level>"
+    )
+
+    logger.add(sys.stdout, level=log_level, colorize=True, format=fmt_console)
+
+    if to_file:
+        fmt_file = (
+            "{time:YYYY-MM-DD HH:mm:ss} | "
+            "{level: <7} | "
+            "{name}:{function}:{line} | "
+            "{message}"
+        )
+        logger.add(
+            _LOG_FILE,
+            rotation="5 MB",
+            level="DEBUG",
+            encoding="utf-8",
+            format=fmt_file,
+            enqueue=True,
+        )
+
+    return logger
+
+logger = setup_logger()
+
+# Catch global exceptions (crashes during debugging hook)
+def log_exception(exc: Exception, layer=None, metric=None):
+    import traceback
+    trace = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+    ctx = f"metric={metric or 'unknown'}, layer={layer or 'unknown'}"
+    logger.error(f"{ctx}\n{trace}\n")
+
+def log_timing(metric, layer, elapsed):
+    logger.debug(f"[timing] {metric} -> {layer} took {elapsed * 1000:.1f} ms")
+
+def banner(model=None, metrics=None, version="0.1.0"):
     """
     Print the startup log header of the DeepCT framework
     """
@@ -40,7 +76,7 @@ def print_banner(model=None, metrics=None, version="0.1.0"):
 
     banner = [
         "═" * width,
-        "🔬  DeepCT — Deep Computed Tomography for LLMs",
+        "🚀  DeepCT — Deep Computed Tomography for LLMs",
         f"Version     : {version}",
         f"Timestamp   : {timestamp}",
         f"Torch       : {torch_version}",
@@ -50,10 +86,8 @@ def print_banner(model=None, metrics=None, version="0.1.0"):
         "═" * width,
     ]
 
-    logger.opt(colors=True).info("\n" + "\n".join(banner))
-    logger.info("Initializing DeepCT at {}", timestamp)
-    logger.info("Loaded model: {}", model_name)
-    logger.info("Registered metrics: {}", metric_names)
+    print("\n".join(banner))
+    
 
     return banner
 
@@ -224,4 +258,4 @@ def summary(metrics):
 
         print("-" * 60)
 
-__all__ = ["logger", "print_banner", "summary"]
+__all__ = ["logger", "banner", "summary"]
