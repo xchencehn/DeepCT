@@ -1,6 +1,7 @@
 from .registry import _METRIC_REGISTRY, register_metric
 from .selfattn_cov_spectrum import SelfAttentionCovarianceSpectrum
 from .selfattn_repr_correlation import SelfAttnRepresentationalCorrelation
+from .perplexity_metric import PerplexityMetric
 
 def get_metric_instance(name):
     if name not in _METRIC_REGISTRY:
