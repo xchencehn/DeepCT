@@ -2,7 +2,34 @@ import torch
 from .collector import Collector
 from .metrics import get_metric_instance
 from .tools import summary, logger, print_banner
+import weakref, threading
 
+class RuntimeContext(threading.local):
+    """Thread-safe context storage per forward call"""
+    current_context = None
+
+    def __init__(self):
+        self.model_ref = None
+        self.kwargs = {}
+        self.device = "cpu"
+        self.hidden_map = {}
+
+    @classmethod
+    def start(cls, model, **kwargs):
+        ctx = cls()
+        ctx.model_ref = weakref.ref(model)
+        ctx.kwargs = kwargs
+        ctx.device = next(model.parameters()).device
+        cls.current_context = ctx
+        return ctx
+
+    @classmethod
+    def get(cls):
+        return getattr(cls, 'current_context', None)
+
+    @classmethod
+    def clear(cls):
+        cls.current_context = None
 
 
 class DeepCT(torch.nn.Module):
@@ -43,8 +70,11 @@ class DeepCT(torch.nn.Module):
 
     def _hook_fn(self, layer_name):
         def hook(module, inputs, outputs):
+            ctx = RuntimeContext.get()
             hidden_states = outputs[0] if isinstance(outputs, tuple) else outputs
-            self.collector.update(layer_name, hidden_states)
+            extra = ctx.kwargs if ctx else {}
+
+            self.collector.update(layer_name, hidden_states, **extra)
             logger.trace("[hook trigger] layer='{}' updated metrics", layer_name)
         return hook
 
@@ -57,7 +87,10 @@ class DeepCT(torch.nn.Module):
 
     def forward(self, *args, **kwargs):
         logger.debug("Model forward started.")
-        return self.model(*args, **kwargs)
+        RuntimeContext.start(self.model, **kwargs)
+        out = self.model(*args, **kwargs)
+        RuntimeContext.clear()
+        return out
 
     def collect(self):
         logger.info("Collecting computed metric results...")
