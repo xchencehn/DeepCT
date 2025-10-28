@@ -17,15 +17,22 @@ class Collector:
         }
 
     def update(self, layer_name, hidden_states):
+        def safe_sync():
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            elif hasattr(torch, "mps") and torch.mps.is_available():
+                torch.mps.synchronize()
+            # Skip the CPU status directly
+
         for m in self.metrics:
-            torch.cuda.synchronize()
             start_time = time.time()
             try:
+                safe_sync()
                 m.update(layer_name, hidden_states)
-                torch.cuda.synchronize()
+                safe_sync()
                 end_time = time.time()
             except Exception as e:
-                torch.cuda.synchronize()
+                safe_sync()
                 end_time = time.time()
                 error_info = {
                     'message': str(e),
