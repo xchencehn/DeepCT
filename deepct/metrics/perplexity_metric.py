@@ -22,7 +22,7 @@ class PerplexityMetric(BaseMetric):
 
     name = "perplexity_metric"
 
-    target_layers = "lm_head"   # hook 在模型输出层
+    target_layers = staticmethod(lambda name: name.endswith("lm_head") or ".lm_head." in name)
     
     def __init__(self):
         super().__init__()
@@ -33,6 +33,7 @@ class PerplexityMetric(BaseMetric):
     def update(self, layer_name, hidden_states, **kwargs):
         """hidden_states 在最后一层时通常是 logits: [batch, seq, vocab]"""
         logits = hidden_states
+        logger.info(f"[PPL] layer={layer_name}, logits shape={hidden_states.shape}")
 
         labels = kwargs.get("labels", None)  # 在推理的时候传入 labels
         if labels is None:
