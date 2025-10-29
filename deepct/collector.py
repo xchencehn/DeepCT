@@ -15,29 +15,28 @@ class Collector:
             } for m in metrics
         }
 
-    def update(self, layer_name, hidden_states, **kwargs):
-        for m in self.metrics:
-            start = time.time()
-            try:
-                m.update(layer_name, hidden_states, **kwargs)
-                torch.cuda.synchronize() if torch.cuda.is_available() else None
-                elapsed = time.time() - start
-                log_timing(m.name, layer_name, elapsed)
+    def update(self, metric, layer_name, hidden_states, **kwargs):
+        start = time.time()
+        try:
+            metric.update(layer_name, hidden_states, **kwargs)
+            torch.cuda.synchronize() if torch.cuda.is_available() else None
+            elapsed = time.time() - start
+            log_timing(metric.name, layer_name, elapsed)
 
-            except Exception as e:
-                elapsed = time.time() - start
-                log_exception(e, layer=layer_name, metric=m.name)
-                self.status[m.name]["error"].append({
-                    "exception": type(e).__name__,
-                    "message": str(e),
-                    "layer": layer_name,
-                    "time": elapsed
-                })
-                self.status[m.name]["error_flag"] = True
+        except Exception as e:
+            elapsed = time.time() - start
+            log_exception(e, layer=layer_name, metric=metric.name)
+            self.status[metric.name]["error"].append({
+                "exception": type(e).__name__,
+                "message": str(e),
+                "layer": layer_name,
+                "time": elapsed
+            })
+            self.status[metric.name]["error_flag"] = True
 
-            finally:
-                self.status[m.name]["iter"] += 1
-                self.status[m.name]["time_record"].append(elapsed)
+        finally:
+            self.status[metric.name]["iter"] += 1
+            self.status[metric.name]["time_record"].append(elapsed)
 
     def collect(self):
         total = len(self.metrics)

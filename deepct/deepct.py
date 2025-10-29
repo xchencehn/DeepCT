@@ -74,21 +74,23 @@ class DeepCT(torch.nn.Module):
                     elif name != tl:
                         continue
 
-                handle = module.register_forward_hook(self._hook_fn(name))
+                # handle = module.register_forward_hook(self._hook_fn(name))
+                handle = module.register_forward_hook(self._hook_fn(name, metric))
                 self._hook_handles.append(handle)
 
                 logger.debug("[hook registered] metric='{}' -> layer='{}'", metric.name, name)
 
-    def _hook_fn(self, layer_name):
-        def hook(module, inputs, outputs):
+    def _hook_fn(self, layer_name, metric):
+        def hook(module, inputs, outputs, layer=layer_name, metric=metric):
             ctx = RuntimeContext.get()
             hidden_states = outputs[0] if isinstance(outputs, tuple) else outputs
-            extra = ctx.kwargs if ctx else {}
+            extra = dict(ctx.kwargs) if ctx else {}
             extra["model"] = self.model
             extra["labels"] = ctx.labels
 
-            self.collector.update(layer_name, hidden_states, **extra)
-            logger.trace("[hook trigger] layer='{}' updated metrics", layer_name)
+            # self.collector.update(layer, hidden_states, **extra)
+            self.collector.update(metric, layer, hidden_states, **extra)
+            logger.trace(f"[hook trigger] metric update from layer='{layer}'")
         return hook
 
     def clear_hooks(self):
@@ -107,6 +109,8 @@ class DeepCT(torch.nn.Module):
         RuntimeContext.start(self.model, **kwargs)
         out = self.model(*args, **kwargs)
         RuntimeContext.clear()
+        self.clear_hooks()
+        logger.debug("Model forward completed.")
         return out
 
     def collect(self):
@@ -121,7 +125,7 @@ class DeepCT(torch.nn.Module):
 
     def _summary(self, metrics):
         """Print a user-visible summary report."""
-        logger.info("Generating DeepCT summary report...")
+        logger.info("Generating DeepCT summary ...")
         summary(metrics)
 
     @staticmethod

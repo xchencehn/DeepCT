@@ -9,9 +9,9 @@ model_name = "Qwen/Qwen2.5-0.5B-Instruct"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForCausalLM.from_pretrained(model_name, dtype="auto")
 
-# dc = DeepCT(model, metrics=["selfattn_repr_correlation", "selfattn_cov_spectrum", "perplexity_metric"])
+dc = DeepCT(model, metrics=["selfattn_repr_correlation", "selfattn_cov_spectrum", "perplexity_metric"])
 # dc = DeepCT(model, metrics=["selfattn_repr_correlation", "selfattn_cov_spectrum", "layerwise_perplexity_metric"])
-dc = DeepCT(model, metrics=["selfattn_repr_correlation", "selfattn_cov_spectrum"])
+# dc = DeepCT(model, metrics=["selfattn_repr_correlation", "selfattn_cov_spectrum"])
 
 prompt = "Please give me a brief introduction to large language models."
 messages = [{"role": "user", "content": prompt}]

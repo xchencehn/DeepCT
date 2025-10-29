@@ -1,6 +1,22 @@
 import torch
 
 class BaseMetric:
+    """
+    Base class for all DeepCT metrics.
+
+    Each subclass must define:
+      - `name`: unique string key
+      - `target_layers`: controls where hooks are registered.
+                "all"             → hook every submodule
+                "model.layers.*"  → wildcard pattern match
+                callable(name)    → custom layer filter
+
+        DeepCT inspects this attribute when initializing
+        and hooks the corresponding modules.
+
+    The `update(layer_name, hidden_states, **kwargs)` method is all you need to implement.
+    """
+
     name = "base"
 
     target_layers = "all"
@@ -15,5 +31,3 @@ class BaseMetric:
     def compute(self):
         # This will be called after all layers have run.
         return self.values
-
-

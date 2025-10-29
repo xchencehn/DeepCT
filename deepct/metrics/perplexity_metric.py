@@ -22,7 +22,7 @@ class PerplexityMetric(BaseMetric):
 
     name = "perplexity_metric"
 
-    target_layers = staticmethod(lambda name: name.endswith("lm_head") or ".lm_head." in name)
+    target_layers = "lm_head"
     
     def __init__(self):
         super().__init__()

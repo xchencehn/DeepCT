@@ -12,6 +12,7 @@ def setup_logger(to_file=True):
     logger.remove()
 
     log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+    log_level = "DEBUG"
 
     fmt_console = (
         "<green>{time:HH:mm:ss}</green> | "
@@ -146,7 +147,11 @@ def summary(metrics):
         # Scalar
         if scalars:
             arr = torch.tensor(scalars, dtype=torch.float32)
-            print(f"    Scalar: mean={arr.mean():.6f}, std={arr.std():.6f}, min={arr.min():.6f}, max={arr.max():.6f}")
+            std = arr.std(unbiased=False)
+            print(
+                f"    Scalar: mean={arr.mean():.6f}, std={std:.6f}, "
+                f"min={arr.min():.6f}, max={arr.max():.6f}"
+            )
         else:
             print("    Scalar: no valid data")
 
@@ -241,7 +246,9 @@ def summary(metrics):
             dtype=torch.float32
         )
         if len(all_vals) > 0:
-            mean, std = all_vals.mean(), all_vals.std()
+            arr = all_vals.clone().detach()
+            std = arr.std(unbiased=False)
+            mean = arr.mean()
             threshold = mean + 3 * std
             outliers = [f for f in data_features if f["type"] != "empty" and
                         (f["value"] if f["type"] == "scalar" else f["norm"]) > threshold.item()]

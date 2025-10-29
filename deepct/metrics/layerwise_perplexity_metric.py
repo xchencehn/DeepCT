@@ -42,8 +42,8 @@ class LayerwisePerplexityMetric(BaseMetric):
             return
 
         # 统一类型和维度
-        if hidden_states.dtype == torch.bfloat16:
-            hidden_states = hidden_states.to(torch.float32)
+        # if hidden_states.dtype == torch.bfloat16:
+        #     hidden_states = hidden_states.to(torch.float32)
 
         # 获取词表映射头
         if not hasattr(model, "lm_head"):
