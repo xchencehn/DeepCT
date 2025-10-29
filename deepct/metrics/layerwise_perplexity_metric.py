@@ -23,7 +23,7 @@ class LayerwisePerplexityMetric(BaseMetric):
     """
 
     name = "layerwise_perplexity_metric"
-    target_layers = staticmethod(lambda name: name.count(".") == 2 and name.startswith("model.layers."))
+    target_layers = lambda name: name.count(".") == 2 and name.startswith("model.layers.")
 
     def __init__(self):
         super().__init__()
@@ -40,10 +40,6 @@ class LayerwisePerplexityMetric(BaseMetric):
         if model is None:
             logger.warning(f"[LayerwisePPL] Missing model for {layer_name}, skip.")
             return
-
-        # 统一类型和维度
-        # if hidden_states.dtype == torch.bfloat16:
-        #     hidden_states = hidden_states.to(torch.float32)
 
         # 获取词表映射头
         if not hasattr(model, "lm_head"):

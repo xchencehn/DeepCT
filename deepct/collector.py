@@ -2,6 +2,7 @@ import time
 import torch
 from .tools import logger, log_exception, log_timing
 
+
 class Collector:
 
     def __init__(self, metrics):
@@ -17,6 +18,7 @@ class Collector:
 
     def update(self, metric, layer_name, hidden_states, **kwargs):
         start = time.time()
+        elapsed = 0.0
         try:
             metric.update(layer_name, hidden_states, **kwargs)
             torch.cuda.synchronize() if torch.cuda.is_available() else None
