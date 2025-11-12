@@ -3,6 +3,8 @@ from .selfattn_cov_spectrum import SelfAttentionCovarianceSpectrum
 from .selfattn_repr_correlation import SelfAttnRepresentationalCorrelation
 from .perplexity_metric import PerplexityMetric
 from .layerwise_perplexity_metric import LayerwisePerplexityMetric
+from .layer_representation_intrinsic_dimension import LayerRepresentationIntrinsicDimension
+
 
 def get_metric_instance(name):
     """
