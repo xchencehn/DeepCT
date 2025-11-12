@@ -1,145 +1,98 @@
 # -*- coding: utf-8 -*-
 import torch
-import numpy as np
-from typing import Dict, List, Optional
 from .base import BaseMetric
 from .registry import register_metric
-
-@torch.no_grad()
-def _participation_ratio(svals: torch.Tensor) -> float:
-    """
-    Participation Ratio (PR):
-      PR = (sum(s^2))^2 / sum(s^4)
-    这里用奇异值 s（>=0）计算“有效维度”。
-    """
-    s2 = (svals ** 2).sum()
-    s4 = (svals ** 4).sum() + 1e-12
-    return float((s2 * s2) / s4)
+from ..tools import logger
 
 @register_metric()
 class LayerRepresentationIntrinsicDimension(BaseMetric):
     """
     LayerRepresentationIntrinsicDimension
-    ====================================
-    计算模型各层隐藏表示（Representation）的内在维度（Intrinsic Dimension）。
-
-    一、指标定义
-    ------------
-    内在维度用于衡量一层输出的“有效维度”，反映该层表征在高维空间中所占用的子空间复杂度。
-    当特征值分布较尖时，表征更“低维”；当特征值分布更平坦时，表征更“高维”。
-
-    常用公式：
-      ID = (Σ λ_i)^2 / Σ(λ_i^2)
-    其中 λ_i 为协方差矩阵的特征值（等价于奇异值平方）。
-
-    二、输入说明
-    ------------
-    每层通过 `update(layer_name, hidden_states)` 接收输入：
-        layer_name : str
-            当前层名称，例如 "encoder.layer.12"
-        hidden_states : torch.Tensor
-            当前层的隐藏表示张量，形状为 [batch, seq_len, hidden_dim] 或 [seq_len, hidden_dim]
-
-    三、输出说明
-    ------------
-    compute() -> Dict[str, float]
-        返回每一层的内在维度值:
-        {
-            "encoder.layer.0":  56.8,
-            "encoder.layer.1":  58.0,
-            ...
-        }
+    -------------------------------------
+    计算 Transformer **每个 Block 输出**表征的内在维度 (Intrinsic Dimension)，
+    采用 Participation Ratio:  PR = (Σ s_i^2)^2 / Σ s_i^4
+    其中 s_i 为隐藏表示矩阵的奇异值（s_i >= 0）。
     """
 
-    # —— 你可以在 __init__ 中增加可调参数 —— #
+    # 让框架按这个名字注册与显示（不再出现 base）
+    name = "intrinsic_dim"
+
+    # 只在每个 Block 的输出处挂钩（避免把 q/k/v/mlp/ln 等全部子层都算进去）
+    target_layers = "model.layers.*"   # 适配 LLaMA/Qwen 结构；如是别家，可按需改成 encoder.layer.* 等
+
     def __init__(
         self,
-        max_tokens: int = 2048,     # 每层最多采样 token 数（避免 OOM）
-        use_fp16: bool = False,     # 是否将隐藏态转为 fp16 存储再计算
-        center: bool = True,        # 是否对隐藏态进行去中心化
-    ) -> None:
+        max_tokens: int = 4096,   # 每层最多采样多少个 token，避免 OOM
+        center: bool = True,      # 是否去中心化
+        use_fp16: bool = False,   # 需要时可降低中间精度
+    ):
         super().__init__()
         self.max_tokens = int(max_tokens)
-        self.use_fp16 = bool(use_fp16)
         self.center = bool(center)
+        self.use_fp16 = bool(use_fp16)
 
-        # layer_name -> List[Tensor]（逐步累积）
-        self._buffers: Dict[str, List[torch.Tensor]] = {}
-
-    # BaseMetric 接口：清空状态
-    def reset(self) -> None:
-        self._buffers.clear()
-
-    # BaseMetric 接口：累积一层一次前向的输出
+    # --- 工具：把各种输出规整为 [N, D] 张量 ---
     @torch.no_grad()
-    def update(self, layer_name: str, hidden_states: torch.Tensor) -> None:
+    def _to_2d(self, h):
+        # tuple/list: 取第0个
+        if isinstance(h, (tuple, list)):
+            h = h[0] if len(h) else None
+
+        # HF ModelOutput
+        if hasattr(h, "last_hidden_state"):
+            h = h.last_hidden_state
+        elif hasattr(h, "hidden_states"):
+            hs = h.hidden_states
+            if isinstance(hs, (tuple, list)) and len(hs) > 0:
+                h = hs[-1]
+
+        if not isinstance(h, torch.Tensor):
+            return None
+
+        if h.ndim == 3:               # [B, T, D] -> [N, D]
+            b, t, d = h.shape
+            h = h.reshape(b * t, d)
+        elif h.ndim != 2:             # 既不是 [B,T,D] 也不是 [T,D] 就跳过
+            return None
+        return h
+
+    @torch.no_grad()
+    def update(self, layer_name, hidden_states, **kwargs):
         """
-        hidden_states: [B, T, D] 或 [T, D]
+        输入:
+            layer_name:   当前层名（例如 "model.layers.12"）
+            hidden_states: 该层输出，可能是 Tensor / tuple / HF ModelOutput
+        输出:
+            self.values[layer_name] = float(ID)
         """
-        if hidden_states is None:
+        h = self._to_2d(hidden_states)
+        if h is None or h.numel() == 0:
             return
 
-        # 统一到 [N, D]
-        if hidden_states.dim() == 3:
-            B, T, D = hidden_states.shape
-            H = hidden_states.reshape(B * T, D)
-        elif hidden_states.dim() == 2:
-            H = hidden_states
-        else:
-            # 形状异常时忽略
-            return
-
-        # 去中心化（按特征维度）
-        if self.center:
-            H = H - H.mean(dim=0, keepdim=True)
-
-        # 采样（限制 token 数，避免 OOM）
-        if H.size(0) > self.max_tokens:
-            H = H[: self.max_tokens]
-
-        # 降精度以节省显存/内存
+        # 统一精度
+        if h.dtype in (torch.bfloat16, torch.float16):
+            h = h.to(torch.float32)
         if self.use_fp16:
-            H = H.half()
+            h = h.half()
 
-        # 只在 CPU 上累积，防止 GPU 占用
-        H = H.detach().cpu()
+        # 去中心化
+        if self.center:
+            h = h - h.mean(dim=0, keepdim=True)
 
-        if layer_name not in self._buffers:
-            self._buffers[layer_name] = []
-        self._buffers[layer_name].append(H)
+        # 限制样本量
+        if h.size(0) > self.max_tokens:
+            h = h[: self.max_tokens]
 
-    # BaseMetric 接口：计算最终结果
-    @torch.no_grad()
-    def compute(self) -> Dict[str, float]:
-        """
-        返回: { layer_name: intrinsic_dimension_value }
-        """
-        results: Dict[str, float] = {}
+        # 计算奇异值；失败降级到 double
+        try:
+            s = torch.linalg.svdvals(h)
+        except RuntimeError as e:
+            logger.warning(f"[IntrinsicDim] svdvals fail at {layer_name}: {e}; fallback to float64")
+            s = torch.linalg.svdvals(h.to(torch.float64))
 
-        for ln, chunks in self._buffers.items():
-            if not chunks:
-                continue
+        # Participation Ratio
+        s2 = (s ** 2).sum()
+        s4 = (s ** 4).sum() + 1e-12
+        id_val = float((s2 * s2) / s4)
 
-            # 合并本层收集到的所有片段 -> [N, D]
-            H = torch.cat(chunks, dim=0)
-
-            # 计算奇异值（更数值稳定）；若失败，退化到 double
-            try:
-                s = torch.linalg.svdvals(H)
-            except RuntimeError:
-                s = torch.linalg.svdvals(H.double())
-
-            # 由奇异值计算 Participation Ratio 作为有效维度
-            id_val = _participation_ratio(s)
-            results[ln] = float(id_val)
-
-        return results
-
-    # BaseMetric 可选接口：方便统一展示/命名
-    @property
-    def short_name(self) -> str:
-        return "intrinsic_dim"
-
-    @property
-    def full_name(self) -> str:
-        return "layer_representation_intrinsic_dimension"
+        self.values[layer_name] = id_val  # ✅ 与其它指标一致的写法，Collector 直接拿 values
