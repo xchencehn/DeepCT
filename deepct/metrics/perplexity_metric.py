@@ -33,7 +33,6 @@ class PerplexityMetric(BaseMetric):
     def update(self, layer_name, hidden_states, **kwargs):
         """hidden_states 在最后一层时通常是 logits: [batch, seq, vocab]"""
         logits = hidden_states
-        logger.info(f"[PPL] layer={layer_name}, logits shape={hidden_states.shape}")
 
         labels = kwargs.get("labels", None)  # 在推理的时候传入 labels
         if labels is None:

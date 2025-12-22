@@ -10,9 +10,9 @@ setup(
     long_description_content_type="text/markdown",
     packages=find_packages(),
     install_requires=[
-        "torch",
-        "transformers",
-        "loguru",
+        line.strip()
+        for line in open("requirements.txt", "r", encoding="utf-8")
+        if line.strip() and not line.startswith("#")
     ],
     python_requires=">=3.8",
 )

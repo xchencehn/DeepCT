@@ -1,4 +1,5 @@
-import torch
+from typing import Callable, ClassVar, Union
+LayerSelector = Union[str, Callable[[str], bool], Callable[[str], bool]]
 
 class BaseMetric:
     """
@@ -19,7 +20,7 @@ class BaseMetric:
 
     name = "base"
 
-    target_layers = "all"
+    target_layers: ClassVar[LayerSelector] = "all"
 
     def __init__(self):
         self.values = {}

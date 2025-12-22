@@ -12,7 +12,6 @@ def setup_logger(to_file=True):
     logger.remove()
 
     log_level = os.getenv("LOG_LEVEL", "INFO").upper()
-    log_level = "DEBUG"
 
     fmt_console = (
         "<green>{time:HH:mm:ss}</green> | "

@@ -1,5 +1,11 @@
 ## 一、DeepCT 是什么
 
+<div align="center">
+  <img src="img.png"  style="border-radius: 15px;">
+</div>
+
+
+
 DeepCT 让你：
 
 - 非侵入式监测模型内部层的动态；
@@ -7,8 +13,6 @@ DeepCT 让你：
 - 收集指标（metric） 来描述模型的内部认知特性；
 - 输出 Summary —— 让你知道 DeepCT 框架做了哪些事；
 - 返回原始指标结果 —— 供你深入分析模型内部机制。
-
-
 
 ## 二、安装与准备
 
@@ -27,11 +31,9 @@ pip install -e .
 - Transformers
 - Pandas
 
-
-
 ## 三、快速上手
 
-```
+```python
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from deepct import DeepCT
 
@@ -59,8 +61,6 @@ dc.summary()         # 打印已注册指标、hook层、运行环境等信息
 metrics = dc.collect()
 print(metrics)       # 输出每个指标的层级结果字典
 ```
-
-
 
 ## 四、Summary：框架行为摘要
 
@@ -99,8 +99,6 @@ print(metrics)       # 输出每个指标的层级结果字典
 - Hook Summary：显示每个指标 hook 到的层；
 - 输出完全来自框架内部行为（非模型内容）。
 
-
-
 ## 五、采集指标结果
 
 调用：
@@ -111,7 +109,7 @@ results = dc.collect()
 
 输出结构：
 
-```
+```json
 {
   "intrinsic_dim": {
       "model.layers.0": 126.4,
@@ -128,11 +126,9 @@ results = dc.collect()
 
 > 返回的是每个指标的原始结果字典， 用户可以自行做绘图、聚类或分析。
 
-
-
 ## 六、自定义指标（Metric）
 
-```
+```python
 from deepct.metrics.base import BaseMetric
 from deepct.metrics.registry import register_metric
 import torch
@@ -153,13 +149,11 @@ class ActivationEnergy(BaseMetric):
 dc = DeepCT(model, metrics=["activation_energy"])
 ```
 
-
-
 ## 七、结合分析：如何处理结果
 
 例如，想用 Pandas 快速对比分布：
 
-```
+```python
 import pandas as pd
 
 results = dc.collect()
