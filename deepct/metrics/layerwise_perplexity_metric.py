@@ -9,17 +9,18 @@ class LayerwisePerplexityMetric(BaseMetric):
     """
     LayerwisePerplexityMetric
     --------------------------
-    对 Transformer 每一层的输出表示 h^(l)，计算其“语言困惑度”。
-    用法：
+    Computes the "linguistic perplexity" for the output representation h^(l) of each Transformer layer.
+    
+    Usage:
         dc = DeepCT(model, metrics=["layerwise_perplexity_metric"])
 
-    原理：
-        - 对每层输出 h^(l)，通过模型的 lm_head 投影到词表；
-        - 在各层计算 token-level CrossEntropyLoss；
-        - 指标反映不同层的概率表征能力（越低 = 越接近语言输出）。
+    Principle:
+        - For each layer's output h^(l), project it to the vocabulary logits via the model's lm_head;
+        - Compute token-level CrossEntropyLoss at each layer;
+        - The metric reflects the probabilistic expressiveness of each layer (lower = closer to actual language output).
 
-    输出：
-        self.values["model.layers.N"] = ppl 数值
+    Output:
+        self.values["model.layers.N"] = ppl value
     """
 
     name = "layerwise_perplexity_metric"
@@ -41,16 +42,13 @@ class LayerwisePerplexityMetric(BaseMetric):
             logger.warning(f"[LayerwisePPL] Missing model for {layer_name}, skip.")
             return
 
-        # 获取词表映射头
         if not hasattr(model, "lm_head"):
             logger.warning(f"[LayerwisePPL] Model has no lm_head, skip {layer_name}")
             return
         lm_head = model.lm_head
 
-        # 得到 logits: [batch, seq, vocab]
         logits = lm_head(hidden_states)
 
-        # shift trick 对齐标签
         shift_logits = logits[..., :-1, :].contiguous()
         shift_labels = labels[..., 1:].contiguous()
 

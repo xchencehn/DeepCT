@@ -14,6 +14,6 @@ _ = dc(**inputs)
 results = dc.collect()
 dc.summary(results)
 
-# 打印困惑度曲线
+# Print perplexity curve
 for k, v in results["layerwise_perplexity_metric"].items():
     print(k, v)

@@ -9,14 +9,14 @@ class PerplexityMetric(BaseMetric):
     """
     PerplexityMetric
     ------------------
-    计算语言模型在当前输入上的平均困惑度（Perplexity）。
+    Computes the average perplexity of the language model on the current input.
 
-    定义：
-        - 困惑度 PPL = exp( CrossEntropyLoss )
-        - 每次 forward 时，计算当前 batch 的 token-level CrossEntropyLoss
-        - 累积所有 batch 的结果，最后输出平均困惑度
+    Definition:
+        - Perplexity (PPL) = exp(CrossEntropyLoss)
+        - For each forward pass, computes the token-level CrossEntropyLoss for the current batch
+        - Accumulates results over all batches and outputs the average perplexity at the end
     
-    使用：
+    Usage:
         dc = DeepCT(model, metrics=["perplexity_metric"])
     """
 
@@ -34,12 +34,12 @@ class PerplexityMetric(BaseMetric):
         """hidden_states 在最后一层时通常是 logits: [batch, seq, vocab]"""
         logits = hidden_states
 
-        labels = kwargs.get("labels", None)  # 在推理的时候传入 labels
+        labels = kwargs.get("labels", None)
         if labels is None:
             logger.warning(f"[PerplexityMetric] No labels passed from layer {layer_name}, skip.")
             return
 
-        # 对齐输入输出长度（shift trick）
+        # Align input and output sequence lengths (shift trick)
         shift_logits = logits[..., :-1, :].contiguous()
         shift_labels = labels[..., 1:].contiguous()
 
