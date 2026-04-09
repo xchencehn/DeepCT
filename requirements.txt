@@ -1,4 +1,4 @@
-torch
-transformers
-loguru
-
+numpy==1.26.4
+torch==2.3.1
+transformers==4.41.2
+loguru>=0.7,<1.0

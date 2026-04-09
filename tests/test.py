@@ -7,7 +7,7 @@ import os
 model_name = "Qwen/Qwen2.5-0.5B-Instruct"
 
 tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForCausalLM.from_pretrained(model_name, dtype="auto")
+model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype="auto")
 
 dc = DeepCT(model, metrics=["selfattn_repr_correlation", "selfattn_cov_spectrum", "perplexity_metric", "layerwise_perplexity_metric"])
 

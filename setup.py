@@ -14,5 +14,5 @@ setup(
         for line in open("requirements.txt", "r", encoding="utf-8")
         if line.strip() and not line.startswith("#")
     ],
-    python_requires=">=3.8",
+    python_requires=">=3.10,<3.12",
 )
