@@ -126,6 +126,123 @@ Output structure:
 
 > Returns raw result dictionaries for each metric, allowing users to perform plotting, clustering, or analysis on their own.
 
+## Built-in Metrics
+
+Each entry below lists the metric `name` (the string passed to
+`DeepCT(model, metrics=[...])`), the layers it hooks, and what it computes.
+
+### Geometric / Representational
+
+These probe the shape and dimensionality of a layer's hidden representations.
+
+#### `intrinsic_dim` — Intrinsic Dimension (ID)
+
+Effective number of independent directions used by a layer, computed as the
+participation ratio of the per-layer covariance spectrum:
+
+    ID(l) = (Σᵢ λᵢ)² / Σᵢ λᵢ²
+
+where `λᵢ` are eigenvalues of `Cₗ = (Hᵀ H) / (N − 1)` in descending order and
+`d` is the hidden dimension. Higher → richer, more full-rank representation;
+lower → representations are squeezed into fewer directions.
+
+- **Target layers:** `model.layers.<N>` (block output)
+- **Output:** one scalar per layer
+
+#### `dimension_collapse_rate` — Dimension Collapse Rate (DCR)
+
+Complement of the normalized effective rank of the covariance spectrum:
+
+    pᵢ      = λᵢ / Σⱼ λⱼ
+    erank   = exp(− Σᵢ pᵢ log pᵢ)
+    DCR(l)  = 1 − erank(Cₗ) / d
+
+Higher DCR (→ 1) ⇒ stronger collapse; lower DCR (→ 0) ⇒ energy spread across
+most directions.
+
+- **Target layers:** `model.layers.<N>`
+- **Output:** one scalar per layer
+
+#### `selfattn_repr_correlation` — SelfAttention Representational Correlation E(ξ)
+
+Mean inter-token correlation of self-attention outputs:
+
+    E(ξ) = Σ_{i≠j} (xᵢ · xⱼ) / [ N · Σᵢ ‖xᵢ‖² ]
+
+High ⇒ tokens converge to similar representations (potential redundancy);
+low ⇒ representations stay diverse.
+
+- **Target layers:** `model.layers.<N>.self_attn`
+- **Output:** one scalar per layer
+
+#### `activation_energy_retention` — Activation Energy Retention (AER)
+
+Ratio of L2 energy between adjacent layers — how much representational energy
+survives each layer transition:
+
+    AER(l) = ‖hₗ‖₂² / ‖hₗ₋₁‖₂²
+
+- **Target layers:** `model.layers.<N>` (cross-layer; layer 0 is undefined)
+- **Output:** one scalar per layer (from layer 1 onward)
+
+### Information Flow / Activation
+
+#### `activation_sparsity` — Activation Sparsity Rate (ASR)
+
+Fraction of activation units whose magnitude exceeds threshold `τ`:
+
+    ASR(l) = (1 / |hₗ|) · Σᵢ 𝟙[ |hₗ,ᵢ| > τ ]
+
+Default `τ = 1e-8`; configurable (absolute, or as a fraction of the layer-mean
+activation). Low values ⇒ activations are sparse / concentrated; high values ⇒
+activations are broadly engaged.
+
+- **Target layers:** `model.layers.<N>`
+- **Output:** one scalar per layer
+
+#### `attention_head_entropy` — Attention Head Entropy (AHE)
+
+Average Shannon entropy of the per-head attention distributions:
+
+    Hₕ      = − Σⱼ aₕ,ⱼ · log aₕ,ⱼ        (per-head entropy)
+    AHE(l)  = (1 / H) · Σₕ Hₕ              (layer-mean across H heads)
+
+High entropy ⇒ diffuse, spread-out attention; low entropy ⇒ focused on a few
+positions. Requires the model to expose `attention_weights`, so DeepCT
+auto-enables `output_attentions=True` on the forward call when this metric is
+registered.
+
+- **Target layers:** `model.layers.<N>.self_attn`
+- **Output:** one scalar per layer
+
+### Language Modeling
+
+#### `perplexity_metric` — Overall Perplexity
+
+`PPL = exp(CE_loss)` computed at `lm_head`.
+
+- **Target layers:** `lm_head`
+- **Output:** single scalar `perplexity`
+
+#### `layerwise_perplexity_metric` — Per-layer Perplexity
+
+Projects each transformer block's hidden state through `lm_head` and reports a
+per-layer PPL — a proxy for how language-shaped each layer's representation is.
+
+- **Target layers:** `model.layers.<N>`
+- **Output:** one scalar per layer
+
+### Spectral
+
+#### `selfattn_cov_spectrum` — Covariance Eigenvalue Spectrum
+
+Returns the (filtered) eigenvalue spectrum of each self-attention output's
+covariance matrix. Useful as a raw signal feeding `intrinsic_dim`,
+`dimension_collapse_rate`, and other spectral analyses.
+
+- **Target layers:** `model.layers.<N>.self_attn`
+- **Output:** 1-D tensor per layer
+
 ## Custom Metrics
 
 ```python

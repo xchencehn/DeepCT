@@ -85,6 +85,9 @@ class DeepCT(torch.nn.Module):
 
         self._hook_handles = []
         self._hook_plan = {}
+        self._need_attention = any(
+            getattr(m, "requires_attention", False) for m in self.metrics
+        )
 
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         model_name = getattr(getattr(model, "config", None), "_name_or_path", "unknown")
@@ -94,6 +97,11 @@ class DeepCT(torch.nn.Module):
         logger.info("Initializing DeepCT at {}", timestamp)
         logger.info("Loaded model: {}", model_name)
         logger.info("Registered metrics: {}", metric_names)
+        if self._need_attention:
+            logger.info(
+                "At least one metric needs attention weights; "
+                "DeepCT will set output_attentions=True automatically."
+            )
 
         if self.metrics:
             self._register_hooks()
@@ -138,6 +146,7 @@ class DeepCT(torch.nn.Module):
             extra = dict(ctx.kwargs) if ctx else {}
             extra["model"] = self.model
             extra["labels"] = ctx.labels
+            extra["raw_outputs"] = outputs
             for metric in metrics_bound:
                 self.collector.update(metric, layer, hidden_states, **extra)
                 logger.trace(
@@ -165,6 +174,10 @@ class DeepCT(torch.nn.Module):
         if "labels" not in kwargs and "input_ids" in kwargs:
             kwargs["labels"] = kwargs["input_ids"].clone()
             logger.info("Auto-generated labels from input_ids")
+
+        if self._need_attention and not kwargs.get("output_attentions", False):
+            kwargs["output_attentions"] = True
+            logger.debug("Forcing output_attentions=True for attention-based metrics.")
 
         if not self._hook_handles:
             logger.warning(
